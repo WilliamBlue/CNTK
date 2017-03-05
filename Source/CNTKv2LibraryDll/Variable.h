@@ -8,6 +8,7 @@
 #include "stdafx.h"
 #include "CNTKLibrary.h"
 #include <fstream>
+#include "Utils.h"
 
 namespace CNTK
 {
@@ -35,7 +36,7 @@ namespace CNTK
             : m_shape(shape), m_varKind(varType), m_dataType(type), m_ownerFunction(ownerFunction), m_value(value), m_needsGradient(needsGradient), m_dynamicAxes(dynamicAxes), m_isSparse(isSparse), m_name(name), m_uid(uid), m_valueTimeStamp(0)
         {
             if (value && (type != value->GetDataType()))
-                InvalidArgument("The DataType of the Parameter/Constant Variable does not match the DataType of the associated Value");
+                InvalidArgument("The DataType of the Parameter/Constant Variable '%S' does not match the DataType of the associated Value", AsString().c_str());
 
             // Validate that each of the dynamic axes are unique
             std::unordered_set<Axis> uniqueDynamicAxis;
@@ -43,14 +44,30 @@ namespace CNTK
             {
                 auto retVal = uniqueDynamicAxis.insert(currentDynamicAxis);
                 if (!retVal.second)
-                    InvalidArgument("Dynamic axis named %S is specified more than once for Variable object", currentDynamicAxis.Name().c_str());
+                    InvalidArgument("Dynamic axis named %S is specified more than once for Variable '%S'", currentDynamicAxis.Name().c_str(), AsString().c_str());
             }
+        }
+
+        std::wstring AsString() const
+        {
+            std::wstringstream wss;
+            wss << VariableKindName(m_varKind) << "('";
+            if (m_name != L"")
+                wss << m_name;
+            else
+                wss << m_uid;
+            bool reverse = Internal::IsReversingTensorShapesInErrorMessagesEnabled();
+            if (reverse)
+                wss << "', " << DynamicAxesAsString(m_dynamicAxes, reverse) << ", " << m_shape.AsString() << ")";
+            else
+                wss << "', " << m_shape.AsString() << ", " << DynamicAxesAsString(m_dynamicAxes, reverse) << ")";
+            return wss.str();
         }
 
         std::shared_ptr<VariableFields> Clone() const
         {
             if (m_ownerFunction != nullptr)
-                InvalidArgument("Output variables cannot be cloned");
+                InvalidArgument("Output variable '%S' cannot be cloned.", AsString().c_str());
 
             // Note: We do not clone m_blockFunctionVariableMapping
 
